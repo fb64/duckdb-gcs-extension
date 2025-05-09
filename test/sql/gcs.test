@@ -1,0 +1,23 @@
+# name: test/sql/gcs.test
+# description: test gcs extension
+# group: [gcs]
+
+# Before we load the extension, this will fail
+statement error
+SELECT gcs('Sam');
+----
+Catalog Error: Scalar Function with name gcs does not exist!
+
+# Require statement will ensure this test is run with this extension loaded
+require gcs
+
+# Confirm the extension works
+query I
+SELECT gcs('Sam');
+----
+Gcs Sam 🐥
+
+query I
+SELECT gcs_openssl_version('Michael') ILIKE 'Gcs Michael, my linked OpenSSL version is OpenSSL%';
+----
+true
