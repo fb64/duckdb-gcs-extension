@@ -1,5 +1,7 @@
 #pragma once
 #include "duckdb/common/file_system.hpp"
+#include <google/cloud/storage/client.h>
+#include <google/cloud/storage/grpc_plugin.h>
 
 namespace duckdb{
 class GCSFileHandle : public FileHandle {
@@ -12,8 +14,7 @@ public:
 
 class GCSFileSystem : public FileSystem{
 public:
-    GCSFileSystem(){
-
+    explicit GCSFileSystem(google::cloud::storage::Client client):gcs_client(client){
     }
 
     bool CanSeek() override {
@@ -32,6 +33,9 @@ public:
     string PathSeparator(const string &path) override {
         return "/";
     }
+
+private:
+    google::cloud::storage::Client gcs_client;
 
 };
 }
