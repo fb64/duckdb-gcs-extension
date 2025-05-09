@@ -43,16 +43,14 @@ public:
 	explicit GCSFileSystem(google::cloud::storage::Client client) : gcs_client(client) {
 	}
 
-	vector<string> Glob(const string &path, FileOpener *opener = nullptr) override {
-		// TODO implement Glob Matching
-		return {path};
-	}
+	vector<string> Glob(const string &path, FileOpener *opener = nullptr) override;
 
 	void Read(FileHandle &handle, void *buffer, int64_t nr_bytes, idx_t location) override;
 	int64_t Read(FileHandle &handle, void *buffer, int64_t nr_bytes) override;
 	int64_t GetFileSize(FileHandle &handle) override;
 	time_t GetLastModifiedTime(FileHandle &handle) override;
 	void Seek(FileHandle &handle, idx_t location) override;
+	static void GCSUrlParse(string path, std::string &bucket_name, std::string &file_path);
 
 	bool CanHandleFile(const string &fpath) override;
 
