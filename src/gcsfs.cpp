@@ -1,6 +1,8 @@
 #include "gcsfs.hpp"
 #include "duckdb/common/string_util.hpp"
 
+#include <iostream>
+
 namespace duckdb {
 
 unique_ptr<FileHandle> GCSFileSystem::OpenFile(const string &path, FileOpenFlags flags,
@@ -25,5 +27,44 @@ unique_ptr<FileHandle> GCSFileSystem::OpenFile(const string &path, FileOpenFlags
 	auto metadata = gcs_client.GetObjectMetadata(bucket_name, file_path).value();
 	auto gsfh = make_uniq<GCSFileHandle>(*this, path, flags, metadata);
 	return gsfh;
+}
+
+void GCSFileSystem::Read(FileHandle &handle, void *buffer, int64_t nr_bytes, idx_t location) {
+	if (nr_bytes > 0) {
+		auto &gsfh = handle.Cast<GCSFileHandle>();
+		auto read_range = google::cloud::storage::ReadRange(location, location + nr_bytes);
+		auto reader = gcs_client.ReadObject(gsfh.bucket(), gsfh.file_path(), read_range);
+		auto read_buffer = char_ptr_cast(buffer);
+		if (!reader) {
+			std::ostringstream reader_status;
+			reader_status << reader.status();
+			throw IOException("Could not read from file: %s", {{"errno", std::to_string(errno)}}, reader_status.str(),
+			                  strerror(errno));
+		}
+		reader.read(read_buffer, nr_bytes);
+	}
+}
+
+int64_t GCSFileSystem::Read(FileHandle &handle, void *buffer, int64_t nr_bytes) {
+	auto &gsfh = handle.Cast<GCSFileHandle>();
+	idx_t max_read = gsfh.size() - gsfh.file_offset;
+	nr_bytes = MinValue<idx_t>(max_read, nr_bytes);
+	Read(handle, buffer, nr_bytes, gsfh.file_offset);
+	gsfh.file_offset += nr_bytes;
+	return nr_bytes;
+}
+
+int64_t GCSFileSystem::GetFileSize(FileHandle &handle) {
+	const auto &gsfh = handle.Cast<GCSFileHandle>();
+	return gsfh.size();
+}
+time_t GCSFileSystem::GetLastModifiedTime(FileHandle &handle) {
+	const auto &gsfh = handle.Cast<GCSFileHandle>();
+	return gsfh.last_modified();
+}
+
+void GCSFileSystem::Seek(FileHandle &handle, idx_t location) {
+	auto &gsfh = handle.Cast<GCSFileHandle>();
+	gsfh.file_offset = location;
 }
 } // namespace duckdb

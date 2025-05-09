@@ -7,27 +7,35 @@ class GCSFileHandle : public FileHandle {
 public:
 	GCSFileHandle(FileSystem &file_system, const string &path, const FileOpenFlags &flags,
 	              google::cloud::storage::ObjectMetadata metadata)
-	    : FileHandle(file_system, path, flags), file_offset(0), metadata(metadata) {
+	    : FileHandle(file_system, path, flags), file_offset(0), _metadata(metadata) {
 	}
 
 	void Close() override {
 	}
 
+	google::cloud::storage::ObjectMetadata metadata() const {
+		return _metadata;
+	}
+
 	string bucket() const {
-		return metadata.bucket();
+		return _metadata.bucket();
 	}
 	string file_path() const {
-		return  _metadata.name();
+		return _metadata.name();
 	}
 
 	uint64_t size() const {
-		return metadata.size();
+		return _metadata.size();
+	}
+
+	time_t last_modified() const {
+		return std::chrono::system_clock::to_time_t(_metadata.updated());
 	}
 
 	idx_t file_offset;
 
 private:
-	google::cloud::storage::ObjectMetadata metadata;
+	google::cloud::storage::ObjectMetadata _metadata;
 };
 
 class GCSFileSystem : public FileSystem {
@@ -39,6 +47,12 @@ public:
 		// TODO implement Glob Matching
 		return {path};
 	}
+
+	void Read(FileHandle &handle, void *buffer, int64_t nr_bytes, idx_t location) override;
+	int64_t Read(FileHandle &handle, void *buffer, int64_t nr_bytes) override;
+	int64_t GetFileSize(FileHandle &handle) override;
+	time_t GetLastModifiedTime(FileHandle &handle) override;
+	void Seek(FileHandle &handle, idx_t location) override;
 
 	bool CanHandleFile(const string &fpath) override;
 
