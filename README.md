@@ -1,4 +1,4 @@
-# DuckDB Google Clous Storage Extension
+# DuckDB Google Cloud Storage Extension
 
 
 DuckDB community extension to seamlessly read and write Google Cloud Storage files without using S3 protocol interoperability.
