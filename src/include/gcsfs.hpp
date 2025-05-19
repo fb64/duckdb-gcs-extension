@@ -81,7 +81,9 @@ public:
 	time_t GetLastModifiedTime(FileHandle &handle) override;
 	void Seek(FileHandle &handle, idx_t location) override;
 	bool FileExists(const string &filename, optional_ptr<FileOpener> opener = nullptr) override;
-
+	void RemoveFile(const string &filename, optional_ptr<FileOpener> opener = nullptr) override;
+	void RemoveDirectory(const string &directory, optional_ptr<FileOpener> opener = nullptr) override;
+	void MoveFile(const string &source, const string &target, optional_ptr<FileOpener> opener = nullptr) override;
 	bool CanHandleFile(const string &fpath) override;
 
 	bool CanSeek() override {

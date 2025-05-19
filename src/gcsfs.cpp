@@ -16,7 +16,7 @@ unique_ptr<FileHandle> GCSFileSystem::OpenFile(const string &path, FileOpenFlags
 	unique_ptr<GCSFileHandle> gsfh;
 	string bucket_name, file_path;
 	GCSUrlParse(path, bucket_name, file_path);
-	if (flags.OverwriteExistingFile()) {
+	if (flags.OpenForWriting()) {
 		gsfh = make_uniq<GCSFileHandle>(*this, path, flags, bucket_name, file_path, 0);
 	} else if (flags.OpenForReading()) {
 		auto metadata = gcs_client.GetObjectMetadata(bucket_name, file_path).value();
@@ -86,6 +86,34 @@ bool GCSFileSystem::FileExists(const string &filename, optional_ptr<FileOpener> 
 		return true;
 	}
 	return false;
+}
+void GCSFileSystem::RemoveFile(const string &filename, optional_ptr<FileOpener> opener) {
+	string bucket, file_path;
+	GCSUrlParse(filename, bucket, file_path);
+	auto status = gcs_client.DeleteObject(bucket, file_path);
+	if (!status.ok()) {
+		throw IOException("Unable to delete file: " + filename);
+	}
+}
+void GCSFileSystem::RemoveDirectory(const string &directory, optional_ptr<FileOpener> opener) {
+	string bucket, directory_path;
+	GCSUrlParse(directory, bucket, directory_path);
+	auto status = gcs_client.DeleteObject(bucket, directory_path);
+	if (!status.ok()) {
+		throw IOException("Unable to delete directory: " + directory_path);
+	}
+}
+void GCSFileSystem::MoveFile(const string &source, const string &target, optional_ptr<FileOpener> opener) {
+	string src_bucket, src_file_path, dst_bucket, dst_file_path;
+	GCSUrlParse(source, src_bucket, src_file_path);
+	GCSUrlParse(target, dst_bucket, dst_file_path);
+	if (src_bucket != dst_bucket) {
+		throw IOException("Cannot move file on different buckets src: %s != dst: %s ",src_bucket, dst_bucket);
+	}
+	auto result = gcs_client.MoveObject(src_bucket, src_file_path, dst_file_path);
+	if (!result) {
+		throw IOException("Error while moving file with status:  ",std::move(result).status().message());
+	}
 }
 
 vector<string> GCSFileSystem::Glob(const string &path, FileOpener *opener) {
