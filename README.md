@@ -1,10 +1,25 @@
-# Gcs
+# DuckDB Google Clous Storage Extension
 
-This repository is based on https://github.com/duckdb/extension-template, check it out if you want to build and ship your own DuckDB extension.
 
----
+DuckDB community extension to seamlessly read and write Google Cloud Storage files without using S3 protocol interoperability.
 
-This extension, Gcs, allow you to ... <extension_goal>.
+This extension use the official Google [Cloud Storage C++ client library](https://cloud.google.com/cpp/docs/reference/storage/latest) with GRPC transport.
+
+This allows using Google authentication to access files without using S3 interoperability Access and Secret keys.
+
+To avoid conflict with the official [HTTPFS / S3](https://duckdb.org/docs/stable/extensions/httpfs/overview.html) extension, it uses a dedicated file system prefix : 
+`gsfs://`
+
+Reading file : 
+```
+select * from read_csv('gsfs://<GCS_BUCKET/my_file.csv');
+```
+
+Writing file: 
+```
+COPY (select 'value' as key) to 'gsfs://<GCS_BUCKET>/write_example.csv' ;
+```
+
 
 
 ## Building
