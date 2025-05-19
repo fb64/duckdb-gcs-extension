@@ -1,16 +1,21 @@
 #pragma once
 #include "duckdb/common/file_system.hpp"
+
+#include <iostream>
 #include <google/cloud/storage/client.h>
 
 namespace duckdb {
 class GCSFileHandle : public FileHandle {
 public:
-	GCSFileHandle(FileSystem &file_system, const string &path, const FileOpenFlags &flags,
-	              google::cloud::storage::ObjectMetadata metadata)
-	    : FileHandle(file_system, path, flags), file_offset(0), _metadata(metadata) {
+	GCSFileHandle(FileSystem &file_system, const string &path, const FileOpenFlags &flags, const string &bucket,
+	              const string &file_path, uint64_t size)
+	    : FileHandle(file_system, path, flags), file_offset(0), _bucket(bucket), _file_path(file_path), _size(size) {
 	}
 
 	void Close() override {
+		if (_write_stream) {
+			_write_stream->Close();
+		}
 	}
 
 	google::cloud::storage::ObjectMetadata metadata() const {
@@ -18,14 +23,14 @@ public:
 	}
 
 	string bucket() const {
-		return _metadata.bucket();
+		return _bucket;
 	}
 	string file_path() const {
-		return _metadata.name();
+		return _file_path;
 	}
 
 	uint64_t size() const {
-		return _metadata.size();
+		return _size;
 	}
 
 	time_t last_modified() const {
@@ -34,12 +39,35 @@ public:
 
 	idx_t file_offset;
 
+	bool IsReadyToWrite() const {
+		if (_write_stream) {
+			return true;
+		} else {
+			return false;
+		}
+	}
+
+	void InitWriteStream(google::cloud::storage::Client &gcs_client) {
+		_write_stream = gcs_client.WriteObject(bucket(), file_path(), google::cloud::storage::AutoFinalizeDisabled());
+	}
+
+	void WriteInto(char *buffer, int64_t nr_bytes) {
+		_write_stream->write(buffer, nr_bytes);
+		file_offset += nr_bytes;
+	}
+
 private:
 	google::cloud::storage::ObjectMetadata _metadata;
+	string _bucket;
+	string _file_path;
+	uint64_t _size;
+	std::optional<google::cloud::storage::ObjectWriteStream> _write_stream = std::nullopt;
 };
 
 class GCSFileSystem : public FileSystem {
 public:
+	static const string PREFIX;
+
 	explicit GCSFileSystem(google::cloud::storage::Client client) : gcs_client(client) {
 	}
 
@@ -47,10 +75,12 @@ public:
 
 	void Read(FileHandle &handle, void *buffer, int64_t nr_bytes, idx_t location) override;
 	int64_t Read(FileHandle &handle, void *buffer, int64_t nr_bytes) override;
+	void Write(FileHandle &handle, void *buffer, int64_t nr_bytes, idx_t location) override;
+	int64_t Write(FileHandle &handle, void *buffer, int64_t nr_bytes) override;
 	int64_t GetFileSize(FileHandle &handle) override;
 	time_t GetLastModifiedTime(FileHandle &handle) override;
 	void Seek(FileHandle &handle, idx_t location) override;
-	static void GCSUrlParse(string path, std::string &bucket_name, std::string &file_path);
+	bool FileExists(const string &filename, optional_ptr<FileOpener> opener = nullptr) override;
 
 	bool CanHandleFile(const string &fpath) override;
 
@@ -74,10 +104,9 @@ public:
 	unique_ptr<FileHandle> OpenFile(const string &path, FileOpenFlags flags,
 	                                optional_ptr<FileOpener> opener = nullptr) override;
 
+	static void GCSUrlParse(string path, std::string &bucket_name, std::string &file_path);
+
 private:
 	google::cloud::storage::Client gcs_client;
 };
-inline bool GCSFileSystem::CanHandleFile(const string &fpath) {
-	return fpath.rfind("gsfs://", 0) == 0;
-}
 } // namespace duckdb

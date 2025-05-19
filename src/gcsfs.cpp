@@ -1,17 +1,27 @@
 #include "gcsfs.hpp"
+#include "include/gcsfs.hpp"
+
 #include "duckdb/common/string_util.hpp"
 
+#include <execinfo.h>
 #include <iostream>
+#include <unistd.h>
 
 namespace duckdb {
 
+const string GCSFileSystem::PREFIX = std::string("gsfs://");
+
 unique_ptr<FileHandle> GCSFileSystem::OpenFile(const string &path, FileOpenFlags flags,
                                                optional_ptr<FileOpener> opener) {
+	unique_ptr<GCSFileHandle> gsfh;
 	string bucket_name, file_path;
-	GCSFileSystem::GCSUrlParse(path, bucket_name, file_path);
-
-	auto metadata = gcs_client.GetObjectMetadata(bucket_name, file_path).value();
-	auto gsfh = make_uniq<GCSFileHandle>(*this, path, flags, metadata);
+	GCSUrlParse(path, bucket_name, file_path);
+	if (flags.OverwriteExistingFile()) {
+		gsfh = make_uniq<GCSFileHandle>(*this, path, flags, bucket_name, file_path, 0);
+	} else if (flags.OpenForReading()) {
+		auto metadata = gcs_client.GetObjectMetadata(bucket_name, file_path).value();
+		gsfh = make_uniq<GCSFileHandle>(*this, path, flags, metadata.bucket(), metadata.name(), metadata.size());
+	}
 	return gsfh;
 }
 
@@ -40,6 +50,21 @@ int64_t GCSFileSystem::Read(FileHandle &handle, void *buffer, int64_t nr_bytes) 
 	return nr_bytes;
 }
 
+void GCSFileSystem::Write(FileHandle &handle, void *buffer, int64_t nr_bytes, idx_t location) {
+	auto &gsfh = handle.Cast<GCSFileHandle>();
+	auto write_buffer = char_ptr_cast(buffer);
+	if (!gsfh.IsReadyToWrite()) {
+		gsfh.InitWriteStream(gcs_client);
+	}
+	gsfh.WriteInto(write_buffer, nr_bytes);
+}
+
+int64_t GCSFileSystem::Write(FileHandle &handle, void *buffer, int64_t nr_bytes) {
+	auto &gsfh = handle.Cast<GCSFileHandle>();
+	Write(handle, buffer, nr_bytes, gsfh.file_offset);
+	return nr_bytes;
+}
+
 int64_t GCSFileSystem::GetFileSize(FileHandle &handle) {
 	const auto &gsfh = handle.Cast<GCSFileHandle>();
 	return gsfh.size();
@@ -53,23 +78,32 @@ void GCSFileSystem::Seek(FileHandle &handle, idx_t location) {
 	auto &gsfh = handle.Cast<GCSFileHandle>();
 	gsfh.file_offset = location;
 }
+bool GCSFileSystem::FileExists(const string &filename, optional_ptr<FileOpener> opener) {
+	string bucket, file_path;
+	GCSUrlParse(filename, bucket, file_path);
+	auto metadata = gcs_client.GetObjectMetadata(bucket, file_path);
+	if (metadata) {
+		return true;
+	}
+	return false;
+}
 
 vector<string> GCSFileSystem::Glob(const string &path, FileOpener *opener) {
 	string bucket, pattern_path;
-	GCSFileSystem::GCSUrlParse(path, bucket, pattern_path);
+	GCSUrlParse(path, bucket, pattern_path);
 	vector<string> files_list;
 	auto list_results = gcs_client.ListObjects(bucket, google::cloud::storage::MatchGlob(pattern_path));
 	for (auto &&result : list_results) {
-		string file_path = "gsfs://" + result->bucket() + "/" + result->name();
+		string file_path = PREFIX + result->bucket() + "/" + result->name();
 		files_list.push_back(file_path);
 	}
 	return files_list;
 }
 
 void GCSFileSystem::GCSUrlParse(string path, std::string &bucket_name, std::string &file_path) {
-	const std::string prefix = "gsfs://";
+	const std::string prefix = PREFIX;
 	if (path.substr(0, prefix.size()) != prefix) {
-		throw IOException("URL needs to start with  gsfs://");
+		throw IOException("URL needs to start with %s", {{"errno", std::to_string(errno)}}, PREFIX);
 	}
 
 	std::string remaining_url = path.substr(prefix.size());
@@ -81,6 +115,10 @@ void GCSFileSystem::GCSUrlParse(string path, std::string &bucket_name, std::stri
 
 	bucket_name = remaining_url.substr(0, pos);
 	file_path = remaining_url.substr(pos + 1);
+}
+
+bool GCSFileSystem::CanHandleFile(const string &fpath) {
+	return fpath.rfind(PREFIX, 0) == 0;
 }
 
 } // namespace duckdb
