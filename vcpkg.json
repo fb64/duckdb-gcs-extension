@@ -1,6 +1,9 @@
 {
   "dependencies": [
-    {"name": "google-cloud-cpp", "default-features": false, "features": ["storage-grpc"]}
+    {
+      "name": "google-cloud-cpp",
+      "default-features": false,
+      "features": ["storage"]}
   ],
   "vcpkg-configuration": {
     "overlay-ports": [
