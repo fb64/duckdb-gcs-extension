@@ -53,7 +53,6 @@ private:
 	uint64_t _size;
 	time_t _last_modified;
 	unique_ptr<google::cloud::storage::ObjectWriteStream> _write_stream = nullptr;
-	//absl::optional<google::cloud::storage::ObjectWriteStream> _write_stream = absl::nullopt;
 };
 
 class GCSFileSystem : public FileSystem {
@@ -63,7 +62,7 @@ public:
 	explicit GCSFileSystem(google::cloud::storage::Client client) : gcs_client(client) {
 	}
 
-	vector<string> Glob(const string &path, FileOpener *opener = nullptr) override;
+	vector<OpenFileInfo> Glob(const string &path, FileOpener *opener = nullptr) override;
 
 	void Read(FileHandle &handle, void *buffer, int64_t nr_bytes, idx_t location) override;
 	int64_t Read(FileHandle &handle, void *buffer, int64_t nr_bytes) override;
