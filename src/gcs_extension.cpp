@@ -5,13 +5,12 @@
 #include "duckdb/common/exception.hpp"
 #include "duckdb/main/extension_util.hpp"
 #include "gcsfs.hpp"
-#include <google/cloud/storage/grpc_plugin.h>
 
 namespace duckdb {
 
 static void LoadInternal(DatabaseInstance &instance) {
 	auto &fs = instance.GetFileSystem();
-	fs.RegisterSubSystem(make_uniq<GCSFileSystem>(google::cloud::storage::MakeGrpcClient()));
+	fs.RegisterSubSystem(make_uniq<GCSFileSystem>(google::cloud::storage::Client()));
 }
 
 void GcsExtension::Load(DuckDB &db) {

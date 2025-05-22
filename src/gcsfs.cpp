@@ -2,14 +2,30 @@
 #include "include/gcsfs.hpp"
 
 #include "duckdb/common/string_util.hpp"
-
-#include <execinfo.h>
 #include <iostream>
-#include <unistd.h>
 
 namespace duckdb {
 
 const string GCSFileSystem::PREFIX = std::string("gsfs://");
+
+void GCSFileHandle::InitWriteStream(google::cloud::storage::Client &gcs_client) {
+	auto stream = gcs_client.WriteObject(bucket(), file_path(), google::cloud::storage::AutoFinalizeDisabled());
+	if (stream) {
+		_write_stream = make_uniq<google::cloud::storage::ObjectWriteStream>(std::move(stream));
+	}else {
+		throw IOException("Unable to open write stream for: %s", path);
+	}
+
+}
+
+void GCSFileHandle::WriteInto(char *buffer, int64_t nr_bytes) {
+	if (_write_stream != nullptr) {
+		_write_stream->write(buffer, nr_bytes);
+		file_offset += nr_bytes;
+	}else {
+		throw IOException("Write stream null for: %s", path);
+	}
+}
 
 unique_ptr<FileHandle> GCSFileSystem::OpenFile(const string &path, FileOpenFlags flags,
                                                optional_ptr<FileOpener> opener) {
@@ -17,10 +33,10 @@ unique_ptr<FileHandle> GCSFileSystem::OpenFile(const string &path, FileOpenFlags
 	string bucket_name, file_path;
 	GCSUrlParse(path, bucket_name, file_path);
 	if (flags.OpenForWriting()) {
-		gsfh = make_uniq<GCSFileHandle>(*this, path, flags, bucket_name, file_path, 0);
+		gsfh = make_uniq<GCSFileHandle>(*this, path, flags, bucket_name, file_path, 0, time(0));
 	} else if (flags.OpenForReading()) {
 		auto metadata = gcs_client.GetObjectMetadata(bucket_name, file_path).value();
-		gsfh = make_uniq<GCSFileHandle>(*this, path, flags, metadata.bucket(), metadata.name(), metadata.size());
+		gsfh = make_uniq<GCSFileHandle>(*this, path, flags, metadata.bucket(), metadata.name(), metadata.size(),std::chrono::system_clock::to_time_t(metadata.updated()));
 	}
 	return gsfh;
 }
@@ -107,11 +123,10 @@ void GCSFileSystem::MoveFile(const string &source, const string &target, optiona
 	string src_bucket, src_file_path, dst_bucket, dst_file_path;
 	GCSUrlParse(source, src_bucket, src_file_path);
 	GCSUrlParse(target, dst_bucket, dst_file_path);
-	if (src_bucket != dst_bucket) {
-		throw IOException("Cannot move file on different buckets src: %s != dst: %s ",src_bucket, dst_bucket);
-	}
-	auto result = gcs_client.MoveObject(src_bucket, src_file_path, dst_file_path);
-	if (!result) {
+	auto result = gcs_client.CopyObject(src_bucket, src_file_path, dst_bucket, dst_file_path);
+	if (result) {
+		auto res_delete = gcs_client.DeleteObject(src_bucket, src_file_path);
+	}else {
 		throw IOException("Error while moving file with status:  ",std::move(result).status().message());
 	}
 }

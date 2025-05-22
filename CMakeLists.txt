@@ -7,7 +7,7 @@ set(TARGET_NAME gcs)
 # added in ./vcpkg.json and then used in cmake with find_package. Feel free to
 # remove or replace with other dependencies. Note that it should also be removed
 # from vcpkg.json to prevent needlessly installing it..
-find_package(google_cloud_cpp_storage_grpc REQUIRED)
+find_package(google_cloud_cpp_storage REQUIRED)
 
 set(EXTENSION_NAME ${TARGET_NAME}_extension)
 set(LOADABLE_EXTENSION_NAME ${TARGET_NAME}_loadable_extension)
@@ -21,8 +21,8 @@ build_static_extension(${TARGET_NAME} ${EXTENSION_SOURCES})
 build_loadable_extension(${TARGET_NAME} " " ${EXTENSION_SOURCES})
 
 # Link dependencies in both the static library as the loadable extension
-target_link_libraries(${EXTENSION_NAME} google-cloud-cpp::storage_grpc)
-target_link_libraries(${LOADABLE_EXTENSION_NAME} google-cloud-cpp::storage_grpc)
+target_link_libraries(${EXTENSION_NAME} google-cloud-cpp::storage)
+target_link_libraries(${LOADABLE_EXTENSION_NAME} google-cloud-cpp::storage)
 
 install(
   TARGETS ${EXTENSION_NAME}

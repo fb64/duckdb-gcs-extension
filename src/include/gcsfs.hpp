@@ -1,25 +1,21 @@
 #pragma once
 #include "duckdb/common/file_system.hpp"
-
-#include <iostream>
 #include <google/cloud/storage/client.h>
 
 namespace duckdb {
 class GCSFileHandle : public FileHandle {
 public:
 	GCSFileHandle(FileSystem &file_system, const string &path, const FileOpenFlags &flags, const string &bucket,
-	              const string &file_path, uint64_t size)
-	    : FileHandle(file_system, path, flags), file_offset(0), _bucket(bucket), _file_path(file_path), _size(size) {
+	              const string &file_path, uint64_t size, time_t last_modified)
+	    : FileHandle(file_system, path, flags), file_offset(0), _bucket(bucket), _file_path(file_path), _size(size),
+	      _last_modified(last_modified) {
 	}
 
 	void Close() override {
-		if (_write_stream) {
+		if (_write_stream != nullptr) {
 			_write_stream->Close();
+			_write_stream = nullptr;
 		}
-	}
-
-	google::cloud::storage::ObjectMetadata metadata() const {
-		return _metadata;
 	}
 
 	string bucket() const {
@@ -34,7 +30,8 @@ public:
 	}
 
 	time_t last_modified() const {
-		return std::chrono::system_clock::to_time_t(_metadata.updated());
+		return _last_modified;
+		// return std::chrono::system_clock::to_time_t(_metadata.updated());
 	}
 
 	idx_t file_offset;
@@ -47,21 +44,16 @@ public:
 		}
 	}
 
-	void InitWriteStream(google::cloud::storage::Client &gcs_client) {
-		_write_stream = gcs_client.WriteObject(bucket(), file_path(), google::cloud::storage::AutoFinalizeDisabled());
-	}
-
-	void WriteInto(char *buffer, int64_t nr_bytes) {
-		_write_stream->write(buffer, nr_bytes);
-		file_offset += nr_bytes;
-	}
+	void InitWriteStream(google::cloud::storage::Client &gcs_client);
+	void WriteInto(char *buffer, int64_t nr_bytes);
 
 private:
-	google::cloud::storage::ObjectMetadata _metadata;
 	string _bucket;
 	string _file_path;
 	uint64_t _size;
-	std::optional<google::cloud::storage::ObjectWriteStream> _write_stream = std::nullopt;
+	time_t _last_modified;
+	unique_ptr<google::cloud::storage::ObjectWriteStream> _write_stream = nullptr;
+	//absl::optional<google::cloud::storage::ObjectWriteStream> _write_stream = absl::nullopt;
 };
 
 class GCSFileSystem : public FileSystem {

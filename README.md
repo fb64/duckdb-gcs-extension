@@ -3,7 +3,7 @@
 
 DuckDB community extension to seamlessly read and write Google Cloud Storage files without using S3 protocol interoperability.
 
-This extension use the official Google [Cloud Storage C++ client library](https://cloud.google.com/cpp/docs/reference/storage/latest) with GRPC transport.
+This extension use the official Google [Cloud Storage C++ client library](https://cloud.google.com/cpp/docs/reference/storage/latest).
 
 This allows using Google authentication to access files without using S3 interoperability Access and Secret keys.
 
