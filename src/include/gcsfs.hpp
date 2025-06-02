@@ -44,7 +44,7 @@ public:
 		}
 	}
 
-	void InitWriteStream(google::cloud::storage::Client &gcs_client);
+	void InitWriteStream(google::cloud::storage::ObjectWriteStream& stream);
 	void WriteInto(char *buffer, int64_t nr_bytes);
 
 private:
@@ -59,7 +59,8 @@ class GCSFileSystem : public FileSystem {
 public:
 	static const string PREFIX;
 
-	explicit GCSFileSystem(google::cloud::storage::Client client) : gcs_client(client) {
+	explicit GCSFileSystem() {
+		gcs_client = make_uniq<google::cloud::storage::Client>(std::move(google::cloud::storage::Client()));
 	}
 
 	vector<OpenFileInfo> Glob(const string &path, FileOpener *opener = nullptr) override;
@@ -100,6 +101,6 @@ public:
 	static void GCSUrlParse(string path, std::string &bucket_name, std::string &file_path);
 
 private:
-	google::cloud::storage::Client gcs_client;
+	unique_ptr<google::cloud::storage::Client> gcs_client;
 };
 } // namespace duckdb

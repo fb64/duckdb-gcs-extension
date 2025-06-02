@@ -6,8 +6,7 @@ namespace duckdb {
 
 const string GCSFileSystem::PREFIX = std::string("gsfs://");
 
-void GCSFileHandle::InitWriteStream(google::cloud::storage::Client &gcs_client) {
-	auto stream = gcs_client.WriteObject(bucket(), file_path(), google::cloud::storage::AutoFinalizeDisabled());
+void GCSFileHandle::InitWriteStream(google::cloud::storage::ObjectWriteStream& stream) {
 	if (stream) {
 		_write_stream = make_uniq<google::cloud::storage::ObjectWriteStream>(std::move(stream));
 	} else {
@@ -32,7 +31,7 @@ unique_ptr<FileHandle> GCSFileSystem::OpenFile(const string &path, FileOpenFlags
 	if (flags.OpenForWriting()) {
 		gsfh = make_uniq<GCSFileHandle>(*this, path, flags, bucket_name, file_path, 0, time(0));
 	} else if (flags.OpenForReading()) {
-		auto metadata = gcs_client.GetObjectMetadata(bucket_name, file_path).value();
+		auto metadata = gcs_client->GetObjectMetadata(bucket_name, file_path).value();
 		gsfh = make_uniq<GCSFileHandle>(*this, path, flags, metadata.bucket(), metadata.name(), metadata.size(),
 		                                std::chrono::system_clock::to_time_t(metadata.updated()));
 	}
@@ -43,7 +42,7 @@ void GCSFileSystem::Read(FileHandle &handle, void *buffer, int64_t nr_bytes, idx
 	if (nr_bytes > 0) {
 		auto &gsfh = handle.Cast<GCSFileHandle>();
 		auto read_range = google::cloud::storage::ReadRange(location, location + nr_bytes);
-		auto reader = gcs_client.ReadObject(gsfh.bucket(), gsfh.file_path(), read_range);
+		auto reader = gcs_client->ReadObject(gsfh.bucket(), gsfh.file_path(), read_range);
 		auto read_buffer = char_ptr_cast(buffer);
 		if (!reader) {
 			std::ostringstream reader_status;
@@ -68,7 +67,9 @@ void GCSFileSystem::Write(FileHandle &handle, void *buffer, int64_t nr_bytes, id
 	auto &gsfh = handle.Cast<GCSFileHandle>();
 	auto write_buffer = char_ptr_cast(buffer);
 	if (!gsfh.IsReadyToWrite()) {
-		gsfh.InitWriteStream(gcs_client);
+		google::cloud::storage::ObjectWriteStream stream =
+		    gcs_client->WriteObject(gsfh.bucket(), gsfh.file_path(), google::cloud::storage::AutoFinalizeDisabled());
+		gsfh.InitWriteStream(stream);
 	}
 	gsfh.WriteInto(write_buffer, nr_bytes);
 }
@@ -95,7 +96,7 @@ void GCSFileSystem::Seek(FileHandle &handle, idx_t location) {
 bool GCSFileSystem::FileExists(const string &filename, optional_ptr<FileOpener> opener) {
 	string bucket, file_path;
 	GCSUrlParse(filename, bucket, file_path);
-	auto metadata = gcs_client.GetObjectMetadata(bucket, file_path);
+	auto metadata = gcs_client->GetObjectMetadata(bucket, file_path);
 	if (metadata) {
 		return true;
 	}
@@ -104,7 +105,7 @@ bool GCSFileSystem::FileExists(const string &filename, optional_ptr<FileOpener> 
 void GCSFileSystem::RemoveFile(const string &filename, optional_ptr<FileOpener> opener) {
 	string bucket, file_path;
 	GCSUrlParse(filename, bucket, file_path);
-	auto status = gcs_client.DeleteObject(bucket, file_path);
+	auto status = gcs_client->DeleteObject(bucket, file_path);
 	if (!status.ok()) {
 		throw IOException("Unable to delete file: " + filename);
 	}
@@ -112,7 +113,7 @@ void GCSFileSystem::RemoveFile(const string &filename, optional_ptr<FileOpener> 
 void GCSFileSystem::RemoveDirectory(const string &directory, optional_ptr<FileOpener> opener) {
 	string bucket, directory_path;
 	GCSUrlParse(directory, bucket, directory_path);
-	auto status = gcs_client.DeleteObject(bucket, directory_path);
+	auto status = gcs_client->DeleteObject(bucket, directory_path);
 	if (!status.ok()) {
 		throw IOException("Unable to delete directory: " + directory_path);
 	}
@@ -121,9 +122,9 @@ void GCSFileSystem::MoveFile(const string &source, const string &target, optiona
 	string src_bucket, src_file_path, dst_bucket, dst_file_path;
 	GCSUrlParse(source, src_bucket, src_file_path);
 	GCSUrlParse(target, dst_bucket, dst_file_path);
-	auto cp_result = gcs_client.CopyObject(src_bucket, src_file_path, dst_bucket, dst_file_path);
+	auto cp_result = gcs_client->CopyObject(src_bucket, src_file_path, dst_bucket, dst_file_path);
 	if (cp_result) {
-		auto res_delete = gcs_client.DeleteObject(src_bucket, src_file_path);
+		auto res_delete = gcs_client->DeleteObject(src_bucket, src_file_path);
 	} else {
 		throw IOException("Error while moving file with status: ", std::move(cp_result).status().message());
 	}
@@ -133,7 +134,7 @@ vector<OpenFileInfo> GCSFileSystem::Glob(const string &path, FileOpener *opener)
 	string bucket, pattern_path;
 	GCSUrlParse(path, bucket, pattern_path);
 	vector<OpenFileInfo> files_list;
-	auto list_results = gcs_client.ListObjects(bucket, google::cloud::storage::MatchGlob(pattern_path));
+	auto list_results = gcs_client->ListObjects(bucket, google::cloud::storage::MatchGlob(pattern_path));
 	for (auto &&result : list_results) {
 		string file_path = PREFIX + result->bucket() + "/" + result->name();
 		files_list.push_back(OpenFileInfo(file_path));

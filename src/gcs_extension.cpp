@@ -10,7 +10,7 @@ namespace duckdb {
 
 static void LoadInternal(DatabaseInstance &instance) {
 	auto &fs = instance.GetFileSystem();
-	fs.RegisterSubSystem(make_uniq<GCSFileSystem>(google::cloud::storage::Client()));
+	fs.RegisterSubSystem(make_uniq<GCSFileSystem>());
 }
 
 void GcsExtension::Load(DuckDB &db) {
