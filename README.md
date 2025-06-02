@@ -10,13 +10,22 @@ This allows using Google authentication to access files without using S3 interop
 To avoid conflict with the official [HTTPFS / S3](https://duckdb.org/docs/stable/extensions/httpfs/overview.html) extension, it uses a dedicated file system prefix : 
 `gsfs://`
 
-Reading file : 
+On a non-managed GCP environment you must set your [Active Default Credentials](https://cloud.google.com/sdk/gcloud/reference/auth/application-default) :
+```shell
+# use your login as default credentials
+gcloud auth application-default login
+# OR use a service account
+export GOOGLE_APPLICATION_CREDENTIALS=<service_account.json> 
 ```
+
+
+Reading file : 
+```sql
 select * from read_csv('gsfs://<GCS_BUCKET/my_file.csv');
 ```
 
 Writing file: 
-```
+```sql
 COPY (select 'value' as key) to 'gsfs://<GCS_BUCKET>/write_example.csv' ;
 ```
 
