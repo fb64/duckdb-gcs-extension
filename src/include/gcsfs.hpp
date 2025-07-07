@@ -1,6 +1,7 @@
 #pragma once
 #include "duckdb/common/file_system.hpp"
 #include <google/cloud/storage/client.h>
+#include <google/cloud/storage/grpc_plugin.h>
 
 namespace duckdb {
 class GCSFileHandle : public FileHandle {
@@ -60,7 +61,7 @@ public:
 	static const string PREFIX;
 
 	explicit GCSFileSystem() {
-		gcs_client = make_uniq<google::cloud::storage::Client>(std::move(google::cloud::storage::Client()));
+		gcs_client = make_uniq<google::cloud::storage::Client>(std::move(google::cloud::storage::MakeGrpcClient()));
 	}
 
 	vector<OpenFileInfo> Glob(const string &path, FileOpener *opener = nullptr) override;

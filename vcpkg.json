@@ -3,7 +3,7 @@
     {
       "name": "google-cloud-cpp",
       "default-features": false,
-      "features": ["storage"]}
+      "features": ["storage-grpc"]}
   ],
   "vcpkg-configuration": {
     "overlay-ports": [
