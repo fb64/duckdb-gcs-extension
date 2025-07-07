@@ -9,6 +9,7 @@
 namespace duckdb {
 
 static void LoadInternal(DatabaseInstance &instance) {
+	ExtensionUtil::RegisterExtension(instance,"gcs",{"Add support for Google Cloud Storage"});
 	auto &fs = instance.GetFileSystem();
 	fs.RegisterSubSystem(make_uniq<GCSFileSystem>());
 }
