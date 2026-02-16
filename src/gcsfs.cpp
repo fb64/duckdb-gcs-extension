@@ -84,7 +84,7 @@ int64_t GCSFileSystem::GetFileSize(FileHandle &handle) {
 	const auto &gsfh = handle.Cast<GCSFileHandle>();
 	return gsfh.size();
 }
-time_t GCSFileSystem::GetLastModifiedTime(FileHandle &handle) {
+timestamp_t GCSFileSystem::GetLastModifiedTime(FileHandle &handle) {
 	const auto &gsfh = handle.Cast<GCSFileHandle>();
 	return gsfh.last_modified();
 }
@@ -93,6 +93,13 @@ void GCSFileSystem::Seek(FileHandle &handle, idx_t location) {
 	auto &gsfh = handle.Cast<GCSFileHandle>();
 	gsfh.file_offset = location;
 }
+
+
+idx_t GCSFileSystem::SeekPosition(FileHandle &handle) {
+	auto &gsfh = handle.Cast<GCSFileHandle>();
+	return gsfh.file_offset;
+}
+
 bool GCSFileSystem::FileExists(const string &filename, optional_ptr<FileOpener> opener) {
 	string bucket, file_path;
 	GCSUrlParse(filename, bucket, file_path);

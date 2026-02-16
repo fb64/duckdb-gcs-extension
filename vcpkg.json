@@ -6,8 +6,11 @@
       "features": ["storage"]}
   ],
   "vcpkg-configuration": {
-    "overlay-ports": [
-      "./extension-ci-tools/vcpkg_ports"
-    ]
-  }
+                "overlay-ports": [
+                        "./extension-ci-tools/vcpkg_ports"
+                ],
+                "overlay-triplets": [
+                        "./extension-ci-tools/toolchains"
+                ]
+        }
 }

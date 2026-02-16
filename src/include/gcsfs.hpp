@@ -29,7 +29,7 @@ public:
 		return _size;
 	}
 
-	time_t last_modified() const {
+	timestamp_t last_modified() const {
 		return _last_modified;
 		// return std::chrono::system_clock::to_time_t(_metadata.updated());
 	}
@@ -51,7 +51,7 @@ private:
 	string _bucket;
 	string _file_path;
 	uint64_t _size;
-	time_t _last_modified;
+	timestamp_t _last_modified;
 	unique_ptr<google::cloud::storage::ObjectWriteStream> _write_stream = nullptr;
 };
 
@@ -70,8 +70,9 @@ public:
 	void Write(FileHandle &handle, void *buffer, int64_t nr_bytes, idx_t location) override;
 	int64_t Write(FileHandle &handle, void *buffer, int64_t nr_bytes) override;
 	int64_t GetFileSize(FileHandle &handle) override;
-	time_t GetLastModifiedTime(FileHandle &handle) override;
+	timestamp_t GetLastModifiedTime(FileHandle &handle) override;
 	void Seek(FileHandle &handle, idx_t location) override;
+	idx_t SeekPosition(FileHandle &handle);
 	bool FileExists(const string &filename, optional_ptr<FileOpener> opener = nullptr) override;
 	void RemoveFile(const string &filename, optional_ptr<FileOpener> opener = nullptr) override;
 	void RemoveDirectory(const string &directory, optional_ptr<FileOpener> opener = nullptr) override;

@@ -3,19 +3,18 @@
 #include "gcs_extension.hpp"
 #include "duckdb.hpp"
 #include "duckdb/common/exception.hpp"
-#include "duckdb/main/extension_util.hpp"
 #include "gcsfs.hpp"
 
 namespace duckdb {
 
-static void LoadInternal(DatabaseInstance &instance) {
-	ExtensionUtil::RegisterExtension(instance,"gcs",{"Add support for Google Cloud Storage"});
+static void LoadInternal(ExtensionLoader &loader) {
+	auto &instance = loader.GetDatabaseInstance();
 	auto &fs = instance.GetFileSystem();
 	fs.RegisterSubSystem(make_uniq<GCSFileSystem>());
 }
 
-void GcsExtension::Load(DuckDB &db) {
-	LoadInternal(*db.instance);
+void GcsExtension::Load(ExtensionLoader &loader) {
+	LoadInternal(loader);
 }
 std::string GcsExtension::Name() {
 	return "gcs";
@@ -33,13 +32,8 @@ std::string GcsExtension::Version() const {
 
 extern "C" {
 
-DUCKDB_EXTENSION_API void gcs_init(duckdb::DatabaseInstance &db) {
-	duckdb::DuckDB db_wrapper(db);
-	db_wrapper.LoadExtension<duckdb::GcsExtension>();
-}
-
-DUCKDB_EXTENSION_API const char *gcs_version() {
-	return duckdb::DuckDB::LibraryVersion();
+DUCKDB_CPP_EXTENSION_ENTRY(gcs, loader) {
+	duckdb::LoadInternal(loader);
 }
 }
 
