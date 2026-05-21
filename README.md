@@ -1,5 +1,12 @@
 # DuckDB Google Cloud Storage Extension
 
+> [!WARNING]
+> This repository is archived and no longer maintained.
+>
+> It has been superseded by a more advanced version: [duckdb-gcs](https://github.com/northpolesec/duckdb-gcs) on which I also contribute, which provides the same functionality with continued development and improvements.
+>
+> Please migrate to the new repository for future updates and support.
+
 
 DuckDB community extension to seamlessly read and write Google Cloud Storage files without using S3 protocol interoperability.
 
